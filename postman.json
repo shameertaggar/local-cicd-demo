@@ -8,7 +8,7 @@
   "variable": [
     {
       "key": "baseUrl",
-      "value": "http://localhost:3000",
+      "value": "http://54.253.130.88",
       "type": "string"
     }
   ],
@@ -28,8 +28,12 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/",
-              "host": ["{{baseUrl}}"],
-              "path": [""]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                ""
+              ]
             },
             "description": "Returns application version, service status, and available API endpoint catalog."
           },
@@ -63,8 +67,12 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/health",
-              "host": ["{{baseUrl}}"],
-              "path": ["health"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
             },
             "description": "Lightweight health probe endpoint used by Docker health checks and Jenkins deployment verification."
           },
@@ -103,8 +111,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/analytics/aggregate?windowSize=10&zThreshold=2.5",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "analytics", "aggregate"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "analytics",
+                "aggregate"
+              ],
               "query": [
                 {
                   "key": "windowSize",
@@ -163,8 +178,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/analytics/aggregate",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "analytics", "aggregate"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "analytics",
+                "aggregate"
+              ]
             },
             "description": "Submits a custom array of metric observations to compute percentiles, moving averages, and detect anomalies (e.g. the 185.0 spike)."
           },
@@ -206,8 +228,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/finance/risk-assessment",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "finance", "risk-assessment"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "finance",
+                "risk-assessment"
+              ]
             },
             "description": "Performs multi-factor fraud detection on a sample suspicious transaction exhibiting IP/card country mismatch, VPN usage, and velocity bursts."
           },
@@ -253,8 +282,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/finance/risk-assessment",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "finance", "risk-assessment"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "finance",
+                "risk-assessment"
+              ]
             },
             "description": "Submits a detailed transaction payload to evaluate fraud rules, calculate a weighted 0-100 risk score, and return an approval decision."
           },
@@ -297,8 +333,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/security/batch-verify",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "security", "batch-verify"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "security",
+                "batch-verify"
+              ]
             },
             "description": "Runs cryptographic HMAC-SHA256 signature checks, nonce replay detection, and builds a Merkle Tree Root hash across 25 synthetic security claims."
           },
@@ -345,8 +388,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/security/batch-verify",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "security", "batch-verify"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "security",
+                "batch-verify"
+              ]
             },
             "description": "Verifies custom cryptographic signatures and validates tampering detection on individual payload items."
           },
@@ -389,8 +439,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/logistics/route-optimize",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "logistics", "route-optimize"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "logistics",
+                "route-optimize"
+              ]
             },
             "description": "Generates a 12-stop distribution matrix, calculates Haversine distances, solves nearest-neighbor TSP path, and computes fuel and carbon emissions."
           },
@@ -436,8 +493,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/logistics/route-optimize",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "logistics", "route-optimize"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "logistics",
+                "route-optimize"
+              ]
             },
             "description": "Calculates the most efficient delivery sequence and transit itinerary for custom delivery coordinates starting from a designated warehouse depot."
           },
@@ -467,4 +531,3 @@
     }
   ]
 }
-
