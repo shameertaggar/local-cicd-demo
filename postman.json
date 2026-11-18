@@ -1,0 +1,470 @@
+{
+  "info": {
+    "_postman_id": "b7d12f18-a621-4d33-87bb-e08a6e87f191",
+    "name": "Local CI/CD Demo - Microservices & 300ms APIs",
+    "description": "Comprehensive Postman collection for the Local CI/CD Demo service, featuring health checks and four high-complexity microservice endpoints with calibrated ~300ms response latencies.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "System & Health",
+      "item": [
+        {
+          "name": "Get Application Info & Catalog",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": ["{{baseUrl}}"],
+              "path": [""]
+            },
+            "description": "Returns application version, service status, and available API endpoint catalog."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Status is running\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql(\"running\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Health Check Probe",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Lightweight health probe endpoint used by Docker health checks and Jenkins deployment verification."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Health status is UP\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql(\"UP\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Analytics & Telemetry Engine (~300ms)",
+      "item": [
+        {
+          "name": "Aggregate Metrics (Synthetic 1000-Point Dataset)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/analytics/aggregate?windowSize=10&zThreshold=2.5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "analytics", "aggregate"],
+              "query": [
+                {
+                  "key": "windowSize",
+                  "value": "10",
+                  "description": "Moving average window size"
+                },
+                {
+                  "key": "zThreshold",
+                  "value": "2.5",
+                  "description": "Z-score anomaly threshold"
+                }
+              ]
+            },
+            "description": "Runs statistical distributions, exact percentiles (p10-p99), 10-bucket histogram, moving averages, and Z-score anomaly detection over 1,000 synthetic metrics data points."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response time is around 300ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.at.least(290);",
+                  "});",
+                  "pm.test(\"Response contains summary and percentiles\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.summary.totalDataPoints).to.eql(1000);",
+                  "    pm.expect(json.percentiles).to.have.property(\"p50\");",
+                  "    pm.expect(json.percentiles).to.have.property(\"p99\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Aggregate Metrics (Custom Dataset Payload)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"windowSize\": 5,\n  \"zThreshold\": 2.0,\n  \"dataset\": [\n    102.5, 98.2, 105.1, 99.8, 103.4, 101.2, 110.5, 95.3, 104.8, 102.1,\n    106.3, 97.4, 101.9, 103.8, 100.5, 104.2, 185.0, 99.1, 102.7, 103.5\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/analytics/aggregate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "analytics", "aggregate"]
+            },
+            "description": "Submits a custom array of metric observations to compute percentiles, moving averages, and detect anomalies (e.g. the 185.0 spike)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response time is around 300ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.at.least(290);",
+                  "});",
+                  "pm.test(\"Detected spike anomaly\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.summary.anomalyCount).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Financial Risk & Fraud Engine (~300ms)",
+      "item": [
+        {
+          "name": "Assess Financial Risk (Default Scenario)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/finance/risk-assessment",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "finance", "risk-assessment"]
+            },
+            "description": "Performs multi-factor fraud detection on a sample suspicious transaction exhibiting IP/card country mismatch, VPN usage, and velocity bursts."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response time is around 300ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.at.least(290);",
+                  "});",
+                  "pm.test(\"Risk assessment completed\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.assessment).to.have.property(\"riskScore\");",
+                  "    pm.expect(json.assessment).to.have.property(\"recommendation\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Assess Financial Risk (Custom Transaction)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transaction\": {\n    \"transactionId\": \"tx_custom_77192\",\n    \"userId\": \"usr_fin_982\",\n    \"amount\": 6400.00,\n    \"currency\": \"USD\",\n    \"merchant\": {\n      \"id\": \"mch_luxury_watches\",\n      \"category\": \"wire_transfer\",\n      \"riskRating\": \"HIGH\"\n    },\n    \"card\": {\n      \"bin\": \"424242\",\n      \"issuingCountry\": \"US\",\n      \"isCommercial\": true\n    },\n    \"device\": {\n      \"ipAddress\": \"203.0.113.195\",\n      \"ipCountry\": \"SG\",\n      \"isVpnOrProxy\": true,\n      \"isNewDevice\": true\n    },\n    \"velocity\": {\n      \"transactionsLast1h\": 7,\n      \"totalAmountLast24h\": 12500.00,\n      \"failedAttemptsLast24h\": 4\n    },\n    \"userHistorical\": {\n      \"averageTransactionAmount\": 150.00,\n      \"accountAgeDays\": 20,\n      \"chargebackCount\": 0\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/finance/risk-assessment",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "finance", "risk-assessment"]
+            },
+            "description": "Submits a detailed transaction payload to evaluate fraud rules, calculate a weighted 0-100 risk score, and return an approval decision."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response time is around 300ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.at.least(290);",
+                  "});",
+                  "pm.test(\"Rules triggered for high risk transaction\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.assessment.riskScore).to.be.above(50);",
+                  "    pm.expect(json.triggeredRules.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Security & Cryptographic Verifier (~300ms)",
+      "item": [
+        {
+          "name": "Batch Verify Signatures (Synthetic Batch)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/security/batch-verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "security", "batch-verify"]
+            },
+            "description": "Runs cryptographic HMAC-SHA256 signature checks, nonce replay detection, and builds a Merkle Tree Root hash across 25 synthetic security claims."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response time is around 300ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.at.least(290);",
+                  "});",
+                  "pm.test(\"Valid Merkle Root generated\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.merkleRootHash).to.be.a(\"string\");",
+                  "    pm.expect(json.merkleRootHash.length).to.eql(64);",
+                  "    pm.expect(json.batchSummary.batchIntegrityPassed).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Batch Verify Signatures (Custom Batch)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"secretKey\": \"company-cluster-auth-secret-key-2026\",\n  \"items\": [\n    {\n      \"id\": \"claim_001\",\n      \"nonce\": \"a4f89d31ec22\",\n      \"payload\": {\n        \"principal\": \"worker-node-alpha\",\n        \"role\": \"ADMIN\",\n        \"resourceId\": \"res_cluster_01\",\n        \"expiresAt\": 1999999999000\n      },\n      \"signature\": \"35dbcf785bc03fb09df073a6e30eb424c585e135cfad00ea13b4ba4ea193f2f8\"\n    },\n    {\n      \"id\": \"claim_002\",\n      \"nonce\": \"c77e98a1bf04\",\n      \"payload\": {\n        \"principal\": \"worker-node-beta\",\n        \"role\": \"OPERATOR\",\n        \"resourceId\": \"res_cluster_02\",\n        \"expiresAt\": 1999999999000\n      },\n      \"signature\": \"invalid_tampered_signature_hex\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/security/batch-verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "security", "batch-verify"]
+            },
+            "description": "Verifies custom cryptographic signatures and validates tampering detection on individual payload items."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response time is around 300ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.at.least(290);",
+                  "});",
+                  "pm.test(\"Identifies invalid signatures\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.batchSummary.totalItems).to.eql(2);",
+                  "    pm.expect(json.batchSummary.invalidItems).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Logistics & Route Optimizer (~300ms)",
+      "item": [
+        {
+          "name": "Optimize Delivery Route (Default 12-Stop Scenario)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/logistics/route-optimize",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "logistics", "route-optimize"]
+            },
+            "description": "Generates a 12-stop distribution matrix, calculates Haversine distances, solves nearest-neighbor TSP path, and computes fuel and carbon emissions."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response time is around 300ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.at.least(290);",
+                  "});",
+                  "pm.test(\"Route summary and legs generated\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.routeSummary.totalDistanceKm).to.be.above(0);",
+                  "    pm.expect(json.optimizedItinerary.length).to.eql(12);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Optimize Delivery Route (Custom Waypoints & Depot)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"depot\": {\n    \"name\": \"Brooklyn Distribution Center\",\n    \"latitude\": 40.6782,\n    \"longitude\": -73.9442\n  },\n  \"vehicle\": {\n    \"maxCapacityKg\": 1500,\n    \"averageSpeedKmh\": 45\n  },\n  \"stops\": [\n    {\n      \"id\": \"dst_01\",\n      \"customerName\": \"Manhattan Retail Store\",\n      \"latitude\": 40.7589,\n      \"longitude\": -73.9851,\n      \"packageWeightKg\": 120,\n      \"priority\": \"HIGH\",\n      \"serviceDurationMins\": 15\n    },\n    {\n      \"id\": \"dst_02\",\n      \"customerName\": \"Queens Logistics Depot\",\n      \"latitude\": 40.7282,\n      \"longitude\": -73.7949,\n      \"packageWeightKg\": 210,\n      \"priority\": \"NORMAL\",\n      \"serviceDurationMins\": 20\n    },\n    {\n      \"id\": \"dst_03\",\n      \"customerName\": \"Jersey City Fulfillment\",\n      \"latitude\": 40.7178,\n      \"longitude\": -74.0431,\n      \"packageWeightKg\": 90,\n      \"priority\": \"HIGH\",\n      \"serviceDurationMins\": 10\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/logistics/route-optimize",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "logistics", "route-optimize"]
+            },
+            "description": "Calculates the most efficient delivery sequence and transit itinerary for custom delivery coordinates starting from a designated warehouse depot."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response time is around 300ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.at.least(290);",
+                  "});",
+                  "pm.test(\"Optimized 3 stops and calculated return distance\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.optimizedItinerary.length).to.eql(3);",
+                  "    pm.expect(json.routeSummary.totalDistanceKm).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+
