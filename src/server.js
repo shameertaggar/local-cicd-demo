@@ -7,7 +7,7 @@ app.use(express.json());
 
 app.get("/", (req, res) => {
     res.json({
-        message: "Hello from Local CI/CD!",
+        message: "Hello! Shameer from Local CI/CD!",
         version: process.env.APP_VERSION || "local",
         status: "running"
     });
