@@ -16,10 +16,7 @@ pipeline {
         skipDefaultCheckout()
     }
 
-    // Check GitHub for changes every 2 minutes
-    triggers {
-        pollSCM('H/2 * * * *')
-    }
+
 
     stages {
 
