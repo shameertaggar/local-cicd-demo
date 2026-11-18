@@ -20,6 +20,25 @@ pipeline {
 
     stages {
 
+        stage('AWS Environment Verification') {
+            steps {
+                sh '''
+                    echo "Checking Jenkins execution environment"
+
+                    whoami
+                    echo "HOME=$HOME"
+
+                    aws --version
+
+                    echo "Checking AWS identity"
+                    aws sts get-caller-identity
+
+                    echo "Checking Docker"
+                    docker info
+                '''
+            }
+        }
+
         stage('Checkout') {
             steps {
                 echo 'Checking out latest source code'
