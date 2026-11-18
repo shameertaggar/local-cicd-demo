@@ -106,12 +106,54 @@ pipeline {
                 '''
             }
         }
+
+
+        stage('Deploy to EC2 via SSM') {
+            steps {
+                script {
+                    def imageUri = "${ECR_IMAGE}:${BUILD_NUMBER}"
+
+                    def commandId = sh(
+                        script: """
+                            PARAMETERS=\$(printf '{"commands":["sudo /usr/local/bin/deploy-local-cicd-demo.sh ${imageUri}"]}')
+
+                            aws ssm send-command \
+                            --region ${AWS_REGION} \
+                            --instance-ids i-0d50139bba180eacd \
+                            --document-name AWS-RunShellScript \
+                            --parameters "\$PARAMETERS" \
+                            --query 'Command.CommandId' \
+                            --output text
+                        """,
+                        returnStdout: true
+                    ).trim()
+
+                    echo "SSM Command ID: ${commandId}"
+
+                    sh """
+                        aws ssm wait command-executed \
+                        --region ${AWS_REGION} \
+                        --command-id ${commandId} \
+                        --instance-id i-0d50139bba180eacd
+
+                        aws ssm get-command-invocation \
+                        --region ${AWS_REGION} \
+                        --command-id ${commandId} \
+                        --instance-id i-0d50139bba180eacd \
+                        --query 'StandardOutputContent' \
+                        --output text
+                    """
+                }
+            }
+        }
+
     }
 
     post {
         success {
-            echo 'Image successfully built and pushed to ECR!'
-            echo "Image: ${ECR_IMAGE}:${BUILD_NUMBER}"
+            echo 'CI/CD deployment completed successfully!'
+            echo "Deployed image: ${ECR_IMAGE}:${BUILD_NUMBER}"
+            echo 'Application: http://54.253.130.88'
         }
 
         failure {
