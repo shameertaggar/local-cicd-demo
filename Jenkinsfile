@@ -46,6 +46,16 @@ def runSsmCommand(String remoteCommand, String description) {
                 sleep 5
             done
 
+            case "$STATUS" in
+                Success|Failed|TimedOut|Cancelled|Cancelling|DeliveryTimedOut|ExecutionTimedOut|Undeliverable|Terminated)
+                    ;;
+                *)
+                    echo "ERROR: SSM polling limit reached."
+                    echo "Last status: $STATUS"
+                    exit 1
+                    ;;
+            esac
+
             echo "===== REMOTE STANDARD OUTPUT ====="
 
             aws ssm get-command-invocation \
@@ -75,9 +85,11 @@ def runSsmCommand(String remoteCommand, String description) {
 }
 
 pipeline {
+
     agent any
 
     environment {
+
         APP_NAME = 'local-cicd-demo'
 
         AWS_REGION = 'ap-southeast-2'
@@ -102,12 +114,20 @@ pipeline {
 
     stages {
 
+        // ------------------------------------
+        // 1. CHECKOUT
+        // ------------------------------------
+
         stage('Checkout') {
             steps {
                 echo 'Checking out latest source code'
                 checkout scm
             }
         }
+
+        // ------------------------------------
+        // 2. ENVIRONMENT VERIFICATION
+        // ------------------------------------
 
         stage('Environment Verification') {
             steps {
@@ -135,17 +155,29 @@ pipeline {
             }
         }
 
+        // ------------------------------------
+        // 3. INSTALL DEPENDENCIES
+        // ------------------------------------
+
         stage('Install Dependencies') {
             steps {
                 sh 'npm ci'
             }
         }
 
+        // ------------------------------------
+        // 4. UNIT TESTS
+        // ------------------------------------
+
         stage('Run Unit Tests') {
             steps {
                 sh 'npm test'
             }
         }
+
+        // ------------------------------------
+        // 5. BUILD AMD64 IMAGE
+        // ------------------------------------
 
         stage('Build AMD64 Docker Image') {
             steps {
@@ -157,6 +189,10 @@ pipeline {
                 '''
             }
         }
+
+        // ------------------------------------
+        // 6. ECR AUTHENTICATION
+        // ------------------------------------
 
         stage('Authenticate with ECR') {
             steps {
@@ -170,6 +206,10 @@ pipeline {
             }
         }
 
+        // ------------------------------------
+        // 7. TAG IMAGE
+        // ------------------------------------
+
         stage('Tag Docker Image') {
             steps {
                 sh '''
@@ -180,6 +220,10 @@ pipeline {
             }
         }
 
+        // ------------------------------------
+        // 8. PUSH IMAGE
+        // ------------------------------------
+
         stage('Push Image to ECR') {
             steps {
                 sh '''
@@ -187,6 +231,10 @@ pipeline {
                 '''
             }
         }
+
+        // ------------------------------------
+        // 9. VERIFY ECR IMAGE
+        // ------------------------------------
 
         stage('Verify ECR Image') {
             steps {
@@ -199,9 +247,14 @@ pipeline {
             }
         }
 
+        // ------------------------------------
+        // 10. DEPLOY TO INACTIVE ENVIRONMENT
+        // ------------------------------------
+
         stage('Deploy to Inactive Environment') {
             steps {
                 script {
+
                     def imageUri = "${ECR_IMAGE}:${BUILD_NUMBER}"
 
                     runSsmCommand(
@@ -212,21 +265,68 @@ pipeline {
             }
         }
 
-        
-        stage('Promote and Verify Production') {
+        // ------------------------------------
+        // 11. PROMOTE PRODUCTION
+        // ------------------------------------
+
+        stage('Promote Production') {
             steps {
                 script {
+
                     runSsmCommand(
                         "sudo /usr/local/bin/promote-blue-green.sh ${BUILD_NUMBER}",
-                        "Promote version ${BUILD_NUMBER} and verify production"
+                        "Promote version ${BUILD_NUMBER}"
                     )
 
-                    echo "Production deployment completed successfully."
+                    echo "Production promotion completed."
                 }
             }
         }
 
+        // ------------------------------------
+        // 12. INDEPENDENT PRODUCTION VERIFY
+        // ------------------------------------
+
+        stage('Independent Production Verification') {
+            steps {
+                script {
+
+                    def verifyCommand = """
+                        set -eu
+
+                        echo "===== PRODUCTION HEALTH ====="
+
+                        curl -fsS --max-time 10 http://127.0.0.1/health
+
+                        echo
+
+                        echo "===== PRODUCTION VERSION ====="
+
+                        ACTUAL_VERSION=\\$(curl -fsS --max-time 10 http://127.0.0.1/ | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')
+
+                        echo "Expected version: ${BUILD_NUMBER}"
+                        echo "Actual version: \\$ACTUAL_VERSION"
+
+                        if [ "\\$ACTUAL_VERSION" != "${BUILD_NUMBER}" ]; then
+                            echo "ERROR: Production version mismatch."
+                            exit 1
+                        fi
+
+                        echo "Production verification successful."
+                    """
+
+                    runSsmCommand(
+                        verifyCommand,
+                        "Independently verify production version ${BUILD_NUMBER}"
+                    )
+                }
+            }
+        }
     }
+
+    // ------------------------------------
+    // POST BUILD ACTIONS
+    // ------------------------------------
 
     post {
 
@@ -234,7 +334,7 @@ pipeline {
             echo '======================================'
             echo 'CI/CD DEPLOYMENT COMPLETED SUCCESSFULLY'
             echo "Deployed image: ${ECR_IMAGE}:${BUILD_NUMBER}"
-            echo 'Application: http://54.253.130.88'
+            echo 'Production health: UP'
             echo '======================================'
         }
 
@@ -242,7 +342,7 @@ pipeline {
             echo '======================================'
             echo 'PIPELINE FAILED'
             echo 'Check the Jenkins console output.'
-            echo 'Production traffic may still be on the previous environment.'
+            echo 'If promotion failed, check the automatic rollback logs.'
             echo '======================================'
         }
 
