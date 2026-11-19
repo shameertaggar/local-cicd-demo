@@ -38,7 +38,7 @@ def runSsmCommand(String remoteCommand, String description) {
                 echo "SSM Status: $STATUS"
 
                 case "$STATUS" in
-                    Success|Failed|TimedOut|Cancelled|Cancelling)
+                    Success|Failed|TimedOut|Cancelled|Cancelling|DeliveryTimedOut|ExecutionTimedOut|Undeliverable|Terminated)
                         break
                         ;;
                 esac
