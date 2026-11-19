@@ -108,14 +108,14 @@ pipeline {
         }
 
 
-        stage('Deploy to EC2 via SSM') {
+        stage('Deploy to Inactive Environment') {
             steps {
                 script {
                     def imageUri = "${ECR_IMAGE}:${BUILD_NUMBER}"
 
                     def commandId = sh(
                         script: """
-                            PARAMETERS=\$(printf '{"commands":["sudo /usr/local/bin/deploy-local-cicd-demo.sh ${imageUri}"]}')
+                            PARAMETERS=\$(printf '{"commands":["sudo /usr/local/bin/deploy-blue-green.sh ${imageUri}"]}')
 
                             aws ssm send-command \
                             --region ${AWS_REGION} \
