@@ -226,10 +226,43 @@ pipeline {
         stage('Verify Production Deployment') {
             steps {
                 script {
-                    runSsmCommand(
-                        "curl -fsS http://localhost/health && echo && curl -fsS http://localhost/",
-                        "Verify production application"
-                    )
+                    try {
+                        runSsmCommand(
+                            "curl -fsS http://localhost/health && " +
+                            "curl -fsS http://localhost/ | " +
+                            "grep -F '\"version\":\"${BUILD_NUMBER}\"'",
+                            "Verify production health and deployed version"
+                        )
+
+                        echo "Production deployment verified successfully."
+
+                    } catch (Exception deploymentError) {
+
+                        echo "PRODUCTION VERIFICATION FAILED!"
+                        echo "Starting automatic rollback..."
+
+                        try {
+                            runSsmCommand(
+                                "sudo /usr/local/bin/rollback-blue-green.sh",
+                                "Restore previous production environment"
+                            )
+
+                            echo "Automatic rollback completed successfully."
+
+                        } catch (Exception rollbackError) {
+
+                            error(
+                                "CRITICAL: Production verification and automatic rollback both failed. " +
+                                "Verification error: ${deploymentError.getMessage()}. " +
+                                "Rollback error: ${rollbackError.getMessage()}"
+                            )
+                        }
+
+                        error(
+                            "Deployment verification failed. " +
+                            "Previous production environment restored."
+                        )
+                    }
                 }
             }
         }
