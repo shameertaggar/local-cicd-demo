@@ -1,15 +1,95 @@
 
+def runSsmCommand(String remoteCommand, String description) {
+
+    def parameters = groovy.json.JsonOutput.toJson([
+        commands: [remoteCommand]
+    ])
+
+    echo "Executing on EC2: ${description}"
+
+    withEnv(["SSM_PARAMETERS=${parameters}"]) {
+        sh '''
+            set -eu
+
+            INSTANCE_ID="i-0d50139bba180eacd"
+            REGION="ap-southeast-2"
+
+            COMMAND_ID=$(aws ssm send-command \
+                --region "$REGION" \
+                --instance-ids "$INSTANCE_ID" \
+                --document-name AWS-RunShellScript \
+                --parameters "$SSM_PARAMETERS" \
+                --query 'Command.CommandId' \
+                --output text)
+
+            echo "SSM Command ID: $COMMAND_ID"
+
+            STATUS="Pending"
+
+            for ATTEMPT in $(seq 1 60); do
+
+                STATUS=$(aws ssm get-command-invocation \
+                    --region "$REGION" \
+                    --command-id "$COMMAND_ID" \
+                    --instance-id "$INSTANCE_ID" \
+                    --query 'Status' \
+                    --output text 2>/dev/null || echo "Pending")
+
+                echo "SSM Status: $STATUS"
+
+                case "$STATUS" in
+                    Success|Failed|TimedOut|Cancelled|Cancelling)
+                        break
+                        ;;
+                esac
+
+                sleep 5
+            done
+
+            echo "===== REMOTE STANDARD OUTPUT ====="
+
+            aws ssm get-command-invocation \
+                --region "$REGION" \
+                --command-id "$COMMAND_ID" \
+                --instance-id "$INSTANCE_ID" \
+                --query 'StandardOutputContent' \
+                --output text || true
+
+            echo "===== REMOTE ERROR OUTPUT ====="
+
+            aws ssm get-command-invocation \
+                --region "$REGION" \
+                --command-id "$COMMAND_ID" \
+                --instance-id "$INSTANCE_ID" \
+                --query 'StandardErrorContent' \
+                --output text || true
+
+            if [ "$STATUS" != "Success" ]; then
+                echo "ERROR: SSM command failed. Final status: $STATUS"
+                exit 1
+            fi
+
+            echo "Remote command completed successfully."
+        '''
+    }
+}
+
 pipeline {
     agent any
 
     environment {
         APP_NAME = 'local-cicd-demo'
+
         AWS_REGION = 'ap-southeast-2'
         AWS_ACCOUNT_ID = '928844614968'
+
         ECR_REPOSITORY = 'local-cicd-demo'
 
         ECR_REGISTRY = '928844614968.dkr.ecr.ap-southeast-2.amazonaws.com'
+
         ECR_IMAGE = '928844614968.dkr.ecr.ap-southeast-2.amazonaws.com/local-cicd-demo'
+
+        EC2_INSTANCE_ID = 'i-0d50139bba180eacd'
 
         PATH = '/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Applications/Docker.app/Contents/Resources/bin'
     }
@@ -32,12 +112,24 @@ pipeline {
         stage('Environment Verification') {
             steps {
                 sh '''
+                    set -e
+
+                    echo "===== NODE ====="
                     node --version
+
+                    echo "===== NPM ====="
                     npm --version
+
+                    echo "===== DOCKER ====="
                     docker --version
+
+                    echo "===== AWS CLI ====="
                     aws --version
 
+                    echo "===== AWS IDENTITY ====="
                     aws sts get-caller-identity
+
+                    echo "===== DOCKER INFO ====="
                     docker info
                 '''
             }
@@ -59,9 +151,9 @@ pipeline {
             steps {
                 sh '''
                     docker build \
-                      --platform linux/amd64 \
-                      --pull \
-                      -t ${APP_NAME}:${BUILD_NUMBER} .
+                        --platform linux/amd64 \
+                        --pull \
+                        -t ${APP_NAME}:${BUILD_NUMBER} .
                 '''
             }
         }
@@ -70,10 +162,10 @@ pipeline {
             steps {
                 sh '''
                     aws ecr get-login-password \
-                      --region ${AWS_REGION} \
+                        --region ${AWS_REGION} \
                     | docker login \
-                      --username AWS \
-                      --password-stdin ${ECR_REGISTRY}
+                        --username AWS \
+                        --password-stdin ${ECR_REGISTRY}
                 '''
             }
         }
@@ -82,8 +174,8 @@ pipeline {
             steps {
                 sh '''
                     docker tag \
-                      ${APP_NAME}:${BUILD_NUMBER} \
-                      ${ECR_IMAGE}:${BUILD_NUMBER}
+                        ${APP_NAME}:${BUILD_NUMBER} \
+                        ${ECR_IMAGE}:${BUILD_NUMBER}
                 '''
             }
         }
@@ -100,49 +192,22 @@ pipeline {
             steps {
                 sh '''
                     aws ecr describe-images \
-                      --repository-name ${ECR_REPOSITORY} \
-                      --image-ids imageTag=${BUILD_NUMBER} \
-                      --region ${AWS_REGION}
+                        --repository-name ${ECR_REPOSITORY} \
+                        --image-ids imageTag=${BUILD_NUMBER} \
+                        --region ${AWS_REGION}
                 '''
             }
         }
-
 
         stage('Deploy to Inactive Environment') {
             steps {
                 script {
                     def imageUri = "${ECR_IMAGE}:${BUILD_NUMBER}"
 
-                    def commandId = sh(
-                        script: """
-                            PARAMETERS=\$(printf '{"commands":["sudo /usr/local/bin/deploy-blue-green.sh ${imageUri}"]}')
-
-                            aws ssm send-command \
-                            --region ${AWS_REGION} \
-                            --instance-ids i-0d50139bba180eacd \
-                            --document-name AWS-RunShellScript \
-                            --parameters "\$PARAMETERS" \
-                            --query 'Command.CommandId' \
-                            --output text
-                        """,
-                        returnStdout: true
-                    ).trim()
-
-                    echo "SSM Command ID: ${commandId}"
-
-                    sh """
-                        aws ssm wait command-executed \
-                        --region ${AWS_REGION} \
-                        --command-id ${commandId} \
-                        --instance-id i-0d50139bba180eacd
-
-                        aws ssm get-command-invocation \
-                        --region ${AWS_REGION} \
-                        --command-id ${commandId} \
-                        --instance-id i-0d50139bba180eacd \
-                        --query 'StandardOutputContent' \
-                        --output text
-                    """
+                    runSsmCommand(
+                        "sudo /usr/local/bin/deploy-blue-green.sh ${imageUri}",
+                        "Deploy ${imageUri} to inactive environment"
+                    )
                 }
             }
         }
@@ -150,53 +215,47 @@ pipeline {
         stage('Switch Production Traffic') {
             steps {
                 script {
-                    def commandId = sh(
-                        script: """
-                            aws ssm send-command \
-                            --region ${AWS_REGION} \
-                            --instance-ids i-0d50139bba180eacd \
-                            --document-name AWS-RunShellScript \
-                            --parameters '{"commands":["sudo /usr/local/bin/switch-blue-green.sh"]}' \
-                            --query 'Command.CommandId' \
-                            --output text
-                        """,
-                        returnStdout: true
-                    ).trim()
-
-                    echo "Traffic Switch SSM Command ID: ${commandId}"
-
-                    sh """
-                        aws ssm wait command-executed \
-                        --region ${AWS_REGION} \
-                        --command-id ${commandId} \
-                        --instance-id i-0d50139bba180eacd
-
-                        aws ssm get-command-invocation \
-                        --region ${AWS_REGION} \
-                        --command-id ${commandId} \
-                        --instance-id i-0d50139bba180eacd \
-                        --query 'StandardOutputContent' \
-                        --output text
-                    """
+                    runSsmCommand(
+                        "sudo /usr/local/bin/switch-blue-green.sh",
+                        "Switch production traffic using Nginx"
+                    )
                 }
             }
         }
 
+        stage('Verify Production Deployment') {
+            steps {
+                script {
+                    runSsmCommand(
+                        "curl -fsS http://localhost/health && echo && curl -fsS http://localhost/",
+                        "Verify production application"
+                    )
+                }
+            }
+        }
     }
 
     post {
+
         success {
-            echo 'CI/CD deployment completed successfully!'
+            echo '======================================'
+            echo 'CI/CD DEPLOYMENT COMPLETED SUCCESSFULLY'
             echo "Deployed image: ${ECR_IMAGE}:${BUILD_NUMBER}"
             echo 'Application: http://54.253.130.88'
+            echo '======================================'
         }
 
         failure {
-            echo 'Pipeline failed. Check console output.'
+            echo '======================================'
+            echo 'PIPELINE FAILED'
+            echo 'Check the Jenkins console output.'
+            echo 'Production traffic may still be on the previous environment.'
+            echo '======================================'
         }
 
         always {
             echo "Build number: ${BUILD_NUMBER}"
+            echo "Pipeline result: ${currentBuild.currentResult}"
         }
     }
 }
