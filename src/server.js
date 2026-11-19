@@ -8,7 +8,7 @@ app.use(express.json());
 // Base endpoints
 app.get("/", (req, res) => {
     res.json({
-        message: "Hello! Shameer ali from Local CI/CD! --V3",
+        message: "Hello! Shameer ali from Local CI/CD! --V4",
         version: process.env.APP_VERSION || "local",
         status: "running",
         endpoints: {
