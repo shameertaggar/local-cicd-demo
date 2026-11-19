@@ -147,6 +147,41 @@ pipeline {
             }
         }
 
+        stage('Switch Production Traffic') {
+            steps {
+                script {
+                    def commandId = sh(
+                        script: """
+                            aws ssm send-command \
+                            --region ${AWS_REGION} \
+                            --instance-ids i-0d50139bba180eacd \
+                            --document-name AWS-RunShellScript \
+                            --parameters '{"commands":["sudo /usr/local/bin/switch-blue-green.sh"]}' \
+                            --query 'Command.CommandId' \
+                            --output text
+                        """,
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Traffic Switch SSM Command ID: ${commandId}"
+
+                    sh """
+                        aws ssm wait command-executed \
+                        --region ${AWS_REGION} \
+                        --command-id ${commandId} \
+                        --instance-id i-0d50139bba180eacd
+
+                        aws ssm get-command-invocation \
+                        --region ${AWS_REGION} \
+                        --command-id ${commandId} \
+                        --instance-id i-0d50139bba180eacd \
+                        --query 'StandardOutputContent' \
+                        --output text
+                    """
+                }
+            }
+        }
+
     }
 
     post {
