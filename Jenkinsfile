@@ -302,12 +302,12 @@ pipeline {
 
                         echo "===== PRODUCTION VERSION ====="
 
-                        ACTUAL_VERSION=\\$(curl -fsS --max-time 10 http://127.0.0.1/ | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')
+                        ACTUAL_VERSION=\$(curl -fsS --max-time 10 http://127.0.0.1/ | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')
 
                         echo "Expected version: ${BUILD_NUMBER}"
-                        echo "Actual version: \\$ACTUAL_VERSION"
+                        echo "Actual version: \$ACTUAL_VERSION"
 
-                        if [ "\\$ACTUAL_VERSION" != "${BUILD_NUMBER}" ]; then
+                        if [ "\$ACTUAL_VERSION" != "${BUILD_NUMBER}" ]; then
                             echo "ERROR: Production version mismatch."
                             exit 1
                         fi
