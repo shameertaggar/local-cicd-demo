@@ -212,60 +212,20 @@ pipeline {
             }
         }
 
-        stage('Switch Production Traffic') {
+        
+        stage('Promote and Verify Production') {
             steps {
                 script {
                     runSsmCommand(
-                        "sudo /usr/local/bin/switch-blue-green.sh",
-                        "Switch production traffic using Nginx"
+                        "sudo /usr/local/bin/promote-blue-green.sh ${BUILD_NUMBER}",
+                        "Promote version ${BUILD_NUMBER} and verify production"
                     )
+
+                    echo "Production deployment completed successfully."
                 }
             }
         }
 
-        stage('Verify Production Deployment') {
-            steps {
-                script {
-                    try {
-                        runSsmCommand(
-                            "curl -fsS http://localhost/health && " +
-                            "curl -fsS http://localhost/ | " +
-                            "grep -F '\"version\":\"${BUILD_NUMBER}\"'",
-                            "Verify production health and deployed version"
-                        )
-
-                        echo "Production deployment verified successfully."
-
-                    } catch (Exception deploymentError) {
-
-                        echo "PRODUCTION VERIFICATION FAILED!"
-                        echo "Starting automatic rollback..."
-
-                        try {
-                            runSsmCommand(
-                                "sudo /usr/local/bin/rollback-blue-green.sh",
-                                "Restore previous production environment"
-                            )
-
-                            echo "Automatic rollback completed successfully."
-
-                        } catch (Exception rollbackError) {
-
-                            error(
-                                "CRITICAL: Production verification and automatic rollback both failed. " +
-                                "Verification error: ${deploymentError.getMessage()}. " +
-                                "Rollback error: ${rollbackError.getMessage()}"
-                            )
-                        }
-
-                        error(
-                            "Deployment verification failed. " +
-                            "Previous production environment restored."
-                        )
-                    }
-                }
-            }
-        }
     }
 
     post {
